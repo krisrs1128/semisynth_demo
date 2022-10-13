@@ -7,7 +7,7 @@ phi_inv <- function(z) {
 #' @param X An N x p matrix giving design setting for N samples
 #' @param beta K x p matrix giving effects for each of K species
 lnm_simulator <- function(N, X, beta, sigma = 1, depth = 1000) {
-  K <- nrow(X)
+  K <- nrow(beta)
   Z <- rnorm(K - 1, X %*% t(beta), sigma)
   result <- matrix(nrow = N, ncol = K)
   
