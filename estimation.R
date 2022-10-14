@@ -1,21 +1,9 @@
 
-#' @param effect_estimates Length K vector of species effect estimates
-#' @param true_indicators Length K binary vector of whether a species has a true
-#'   effect
-metrics <- function(effect_estimates, true_indicators) {
-  K <- length(effect_estimates)
-  precision <- vector(length = K)
-  recall <- vector(length = K)
-  ix <- order(effect_estimates)
-  
-  for (k in seq_len(K)) {
-    precision[k] <- mean(true_indicators[1:ix[k]])
-    recall[k] <- sum(true_indicators[1:ix[k]]) / sum(true_indicators)
-  }
-  
-  list(precision = precision, recall = recall)
-}
-
+#' @param intervals Matrix or data.frame of confidence intervals whose rows
+#'   correspond to taxa and columns give lower / upper bounds
+#' @truth A vector of true effect sizes associated with each row in intervals
+#' @grid_ix A vector of thresholds used to decide whether an interval should be
+#'   considered in the comparison
 fsr_path <- function(intervals, truth, grid_ix = NULL) {
   f <- function(candidate_intervals, truth, ix) {
     n_false_sign <- sum(sign(candidate_intervals[, 1]) != sign(truth[ix]))
@@ -24,6 +12,11 @@ fsr_path <- function(intervals, truth, grid_ix = NULL) {
   eval_path(intervals, truth, f, grid_ix)
 }
 
+#' @param intervals Matrix or data.frame of confidence intervals whose rows
+#'   correspond to taxa and columns give lower / upper bounds
+#' @truth A vector of true effect sizes associated with each row in intervals
+#' @grid_ix A vector of thresholds used to decide whether an interval should be
+#'   considered in the comparison
 power_path <- function(intervals, truth, grid_ix = NULL) {
   f <- function(candidate_intervals, truth, ix) {
     n_true_sign <- sum(sign(candidate_intervals[, 1]) == sign(truth[ix]))
@@ -32,6 +25,7 @@ power_path <- function(intervals, truth, grid_ix = NULL) {
   eval_path(intervals, truth, f, grid_ix)
 }
 
+#' Helper function for fsr and power path
 eval_path <- function(intervals, truth, metric_fun, grid_ix = NULL) {
   if (is.null(grid_ix)) {
     grid_ix <- seq(0, max(abs(intervals)), length.out = n_grid)
@@ -45,6 +39,7 @@ eval_path <- function(intervals, truth, metric_fun, grid_ix = NULL) {
   result
 }
 
+#' Convert posterior draws to data.frame of confidence intervals
 postprocess_posterior <- function(posterior) {
   intervals <- t(apply(posterior, 2, function(x) quantile(x, c(0.05, 0.95)))) %>%
     as.data.frame() %>%

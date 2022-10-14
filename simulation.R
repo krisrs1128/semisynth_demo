@@ -8,7 +8,7 @@ composition <- function(Y) {
   Y / rowSums(Y)
 }
 
-
+#' Simulation from the Xia et al. LNM model.
 #' @param X An N x p matrix giving design setting for N samples
 #' @param beta K x p matrix giving effects for each of K species
 lnm_simulator <- function(N, X, beta, sigma = 1, depth = 1000) {
@@ -24,6 +24,9 @@ lnm_simulator <- function(N, X, beta, sigma = 1, depth = 1000) {
   result
 }
 
+#' Exponential Tilt of Observed Compositions
+#' 
+#' A nonparametric simulator for simple regression designs.
 #' @param X An N x p matrix giving design setting for N samples
 #' @param beta K x p matrix giving effects for each of K species
 nonparametric_simulator <- function(N, X, beta, p_hats, depth = 1000) {
