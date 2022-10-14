@@ -4,6 +4,11 @@ phi_inv <- function(z) {
   p / sum(p)
 }
 
+composition <- function(Y) {
+  Y / rowSums(Y)
+}
+
+
 #' @param X An N x p matrix giving design setting for N samples
 #' @param beta K x p matrix giving effects for each of K species
 lnm_simulator <- function(N, X, beta, sigma = 1, depth = 1000) {
@@ -19,16 +24,13 @@ lnm_simulator <- function(N, X, beta, sigma = 1, depth = 1000) {
   result
 }
 
-composition_estimates <- function(Y) {
-  Y / rowSums(Y)
-}
-
 #' @param X An N x p matrix giving design setting for N samples
 #' @param beta K x p matrix giving effects for each of K species
-nonparametric_simulator <- function(N, X, beta, p_hats) {
+nonparametric_simulator <- function(N, X, beta, p_hats, depth = 1000) {
   exponential_tilt <- exp(X %*% t(beta))
-  resample_ix <- sample(nrow(p_hats), replace = TRUE)
+  resample_ix <- sample(nrow(p_hats), N, replace = TRUE)
   p_sim <- p_hats[resample_ix, ] * exponential_tilt
+  p_sim <- p_sim / rowSums(p_sim)
   result <- matrix(nrow = N, ncol = K)
   
   for (i in seq_len(N)) {

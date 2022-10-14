@@ -1,0 +1,93 @@
+---
+title: "semisynthetic"
+output: html_document
+date: "`r Sys.Date()`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+set.seed(123)
+library(cmdstanr)
+library(tidyverse)
+source("estimation.R")
+source("simulation.R")
+```
+
+- Write a simulator based on real data. Use a simple ground truth - exponential
+tilting whose $\beta$ wasn't originally fitted to anything
+- Simulate from a few rescalings of the ground truth
+- Fit to each simulated dataset using LNM
+- Rank treatment effects and estimate false / true positive rates
+
+```{r}
+# for semisynthetic simulation
+p_hat <- read_csv("data/Genus_asv.csv") %>%
+  select(Blautia:Johnsonella) %>%
+  composition() %>%
+  na.omit() # sample 311 has 0 count for some reason
+```
+
+This is the general data setup.
+
+```{r}
+N <- 100
+K <- ncol(p_hat)
+S <- 0.75 # effect sparsity level
+X <- matrix(1, N, 2)
+X[1:(N / 2), 2] <- 0
+beta <- matrix(rnorm(2 * K), K, 2)
+beta_thresh <- beta
+effect_order <- order(abs(beta[, 2]))
+beta_thresh[effect_order[1:(S * K)], 2] <- 0
+```
+
+```{r}
+estimate_metrics <- function(y, N, K, X, beta_thresh) {
+  model <- cmdstan_model("stan/lnm.stan")
+  data_list <- list(N = N, D = 2, K = K - 1, x = X, y = y)
+  fit <- model$variational(data_list)
+  taxa_intervals <- fit$draws("B") %>%
+    postprocess_posterior() %>%
+    filter(feature == 2) %>%
+    select(`5%`, `95%`)
+  
+  grid_ix <- seq(0, 8, length.out = 200)
+  tibble(
+    fsr = fsr_path(taxa_intervals, beta_thresh, grid_ix),
+    power = power_path(taxa_intervals, beta_thresh, grid_ix),
+    grid_ix = grid_ix
+  )
+}
+```
+
+
+```{r}
+metrics <- list()
+y <- lnm_simulator(N, X, beta_thresh)
+metrics[["synthetic"]] <- estimate_metrics(y, N, K, X, beta_thresh[1:(K - 1), 2])
+y <- nonparametric_simulator(N, X[, 2], beta_thresh[, 2], p_hat)
+metrics[["semisynthetic"]] <- estimate_metrics(y, N, K, X, beta_thresh[1:(K - 1), 2])
+metrics <- bind_rows(metrics, .id = "simulation")
+```
+
+```{r, fig.width = 8, fig.height = 3}
+theme_set(theme_bw())
+metrics %>%
+  pivot_longer(fsr:power, names_to = "metric") %>%
+  mutate(
+    metric = case_when(metric == "fsr" ~ "False Sign Rate", metric == "power" ~  "Power"),
+    simulation = case_when(simulation == "synthetic" ~ "Synthetic", simulation == "semisynthetic" ~ "Semisynthetic"),
+    ) %>%
+  ggplot(aes(grid_ix, value, col = simulation)) +
+  geom_line() +
+  geom_point() +
+  scale_color_manual(values = c("#f15a24", "#0378a6")) +
+  labs(col = "Simulation Type", x = "Threshold", y = "Metric") +
+  facet_wrap(~ metric, scales = "free_y") +
+  xlim(0, 2.5) +
+  theme(panel.grid.minor = element_blank())
+ggsave("~/Downloads/semisynthetic_comparison.png", dpi = 500)
+```
